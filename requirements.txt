@@ -1,0 +1,8 @@
+# PDF Cracker Dependencies (CLI-only version)
+
+# No runtime dependencies required for core functionality
+# John the Ripper and crunch are installed via system package managers
+
+# Development and Testing (optional)
+pytest>=7.0.0       # For running tests
+pytest-cov>=4.0.0   # Coverage reporting
