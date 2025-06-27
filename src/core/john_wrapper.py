@@ -229,6 +229,10 @@ class PDFCracker:
         except Exception as e:
             return CrackResult(success=False, error=str(e))
     
+    def get_pdf_info(self, pdf_path: Union[str, Path]) -> dict:
+        """Get PDF information including protection status."""
+        return self.pdf_processor.get_pdf_info(pdf_path)
+    
     def stop(self):
         """Stop any running cracking process."""
         self.john.stop()

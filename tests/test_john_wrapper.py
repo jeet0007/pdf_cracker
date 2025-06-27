@@ -220,6 +220,23 @@ class TestPDFCracker:
         assert not result.success
         assert "Hash extraction failed" in result.error
     
+    def test_get_pdf_info(self, pdf_cracker):
+        """Test getting PDF information."""
+        expected_info = {
+            'path': '/test/path.pdf',
+            'exists': True,
+            'protected': True,
+            'size': 1234
+        }
+        
+        with patch.object(pdf_cracker.pdf_processor, 'get_pdf_info') as mock_get_info:
+            mock_get_info.return_value = expected_info
+            
+            result = pdf_cracker.get_pdf_info('/test/path.pdf')
+            
+            assert result == expected_info
+            mock_get_info.assert_called_once_with('/test/path.pdf')
+    
     def test_stop(self, pdf_cracker):
         """Test stopping cracking process."""
         with patch.object(pdf_cracker.john, 'stop') as mock_stop:
