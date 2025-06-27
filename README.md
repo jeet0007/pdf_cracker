@@ -139,17 +139,19 @@ pdf-cracker/
 ├── install.bat                 # Windows installation
 ├── src/
 │   ├── core/                   # Core functionality
-│   │   ├── password_generator.py   # Comprehensive password generation
-│   │   ├── pdf_processor.py        # PDF hash extraction
-│   │   └── cracker.py              # John the Ripper integration
+│   │   ├── john_wrapper.py         # John the Ripper wrapper
+│   │   ├── crunch_wrapper.py       # Crunch wordlist generator wrapper
+│   │   └── pdf_processor.py        # PDF hash extraction
 │   └── utils/                  # CLI tools
 │       ├── comprehensive_wordlist.py   # Comprehensive wordlist generator
 │       ├── comprehensive_crack.py      # Comprehensive PDF cracker
 │       └── wordlist_gen.py            # Basic date wordlist generator
 ├── tests/                      # Unit tests
-│   ├── test_password_generator.py   # Password generation tests
+│   ├── test_john_wrapper.py        # John wrapper tests
+│   ├── test_crunch_wrapper.py      # Crunch wrapper tests
 │   ├── test_pdf_processor.py       # PDF processing tests
-│   └── test_wordlist_generator.py  # CLI tool tests
+│   ├── test_wordlist_generator.py  # CLI tool tests
+│   └── test_installation.py        # Installation verification
 ├── run_tests.py                # Test runner script
 ├── wordlists/                  # Generated wordlists storage
 ├── assets/                     # Test files and resources
@@ -278,14 +280,24 @@ pip install -r requirements.txt
 
 ### Running Tests
 ```bash
+# Install development dependencies
+pip install -e .[dev]
+
 # Run all tests
 python run_tests.py
 
-# Run specific test module
-python -m unittest tests.test_password_generator -v
+# Run with coverage
+python run_tests.py --coverage
 
-# Check test coverage
-python -m pytest tests/ --cov=src --cov-report=html
+# Run only fast unit tests
+python run_tests.py --unit
+
+# Run specific test file
+python run_tests.py tests/test_john_wrapper.py
+
+# Direct pytest usage
+pytest tests/ --cov=src --cov-report=html
+pytest -v tests/test_crunch_wrapper.py
 ```
 
 ## 📄 License

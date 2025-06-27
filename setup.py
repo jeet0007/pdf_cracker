@@ -12,7 +12,7 @@ if readme_path.exists():
     with open(readme_path, "r", encoding="utf-8") as f:
         long_description = f.read()
 else:
-    long_description = "PDF password cracker for DDMMYYYY format passwords"
+    long_description = "CLI toolkit for cracking PDF passwords using comprehensive wordlist generation"
 
 # Read requirements
 requirements_path = Path(__file__).parent / "requirements.txt"
@@ -24,14 +24,14 @@ if requirements_path.exists():
             if line.strip() and not line.startswith('#')
         ]
 else:
-    requirements = ["tkinterdnd2>=0.3.0"]
+    requirements = []  # No runtime dependencies - uses standard library
 
 setup(
     name="pdf-cracker",
     version="1.0.0",
     author="PDF Cracker Team",
     author_email="contact@example.com",
-    description="A GUI tool for cracking PDF passwords with DDMMYYYY format",
+    description="CLI toolkit for cracking PDF passwords using comprehensive wordlist generation",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/your-username/pdf-cracker",
@@ -63,8 +63,9 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "pdf-cracker=main:main",
-            "pdf-wordlist=wordlist_gen:main",
+            "pdf-crack=utils.comprehensive_crack:main",
+            "pdf-comprehensive-wordlist=utils.comprehensive_wordlist:main",
+            "pdf-wordlist=utils.wordlist_gen:main",
         ],
     },
     include_package_data=True,

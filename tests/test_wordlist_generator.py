@@ -1,205 +1,217 @@
 #!/usr/bin/env python3
 """
-Tests for wordlist generator CLI.
+Tests for wordlist generator CLI tools.
 """
 
-import unittest
 import tempfile
 import os
 import sys
 import subprocess
 from pathlib import Path
+import pytest
 
 # Add src to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
 
-class TestWordlistGeneratorCLI(unittest.TestCase):
+class TestWordlistGeneratorCLI:
     """Test the wordlist generator CLI tool."""
     
-    def setUp(self):
-        """Set up test fixtures."""
-        self.src_dir = Path(__file__).parent.parent / 'src'
-        self.wordlist_gen = self.src_dir / 'wordlist_gen.py'
+    @pytest.fixture
+    def wordlist_gen_script(self):
+        """Path to wordlist generator script."""
+        return Path(__file__).parent.parent / 'src' / 'utils' / 'wordlist_gen.py'
     
-    def test_help_option(self):
+    def test_help_option(self, wordlist_gen_script):
         """Test --help option."""
         result = subprocess.run([
-            sys.executable, str(self.wordlist_gen), '--help'
+            sys.executable, str(wordlist_gen_script), '--help'
         ], capture_output=True, text=True)
         
-        self.assertEqual(result.returncode, 0)
-        self.assertIn('Generate wordlists for date-based passwords', result.stdout)
-        self.assertIn('--start', result.stdout)
-        self.assertIn('--end', result.stdout)
+        assert result.returncode == 0
+        assert 'Generate wordlists for date-based passwords' in result.stdout
+        assert '--start' in result.stdout
+        assert '--end' in result.stdout
     
-    def test_estimate_only(self):
+    @pytest.mark.parametrize("year,expected_count", [
+        (2023, "365"),  # Not leap year
+        (2024, "366"),  # Leap year
+    ])
+    def test_estimate_only(self, wordlist_gen_script, year, expected_count):
         """Test --estimate-only option."""
         result = subprocess.run([
-            sys.executable, str(self.wordlist_gen),
-            '--start', '2023',
-            '--end', '2023',
+            sys.executable, str(wordlist_gen_script),
+            '--start', str(year),
+            '--end', str(year),
             '--estimate-only'
         ], capture_output=True, text=True)
         
-        self.assertEqual(result.returncode, 0)
-        self.assertIn('365 passwords', result.stdout)  # 2023 is not a leap year
-        self.assertIn('Estimate only', result.stdout)
+        assert result.returncode == 0
+        assert expected_count in result.stdout
+        assert 'Estimate only' in result.stdout
     
-    def test_estimate_leap_year(self):
-        """Test estimation for leap year."""
-        result = subprocess.run([
-            sys.executable, str(self.wordlist_gen),
-            '--start', '2024',
-            '--end', '2024',
-            '--estimate-only'
-        ], capture_output=True, text=True)
-        
-        self.assertEqual(result.returncode, 0)
-        self.assertIn('366 passwords', result.stdout)  # 2024 is a leap year
-    
-    def test_invalid_year_range(self):
+    def test_invalid_year_range(self, wordlist_gen_script):
         """Test invalid year range."""
         result = subprocess.run([
-            sys.executable, str(self.wordlist_gen),
+            sys.executable, str(wordlist_gen_script),
             '--start', '2025',
             '--end', '2020',
             '--estimate-only'
         ], capture_output=True, text=True)
         
-        self.assertEqual(result.returncode, 1)
-        self.assertIn('Start year must be less than or equal to end year', result.stderr)
+        assert result.returncode == 1
+        assert 'Start year must be less than or equal to end year' in result.stderr
     
-    def test_generate_small_wordlist(self):
+    @pytest.mark.slow
+    def test_generate_small_wordlist(self, wordlist_gen_script, temp_file):
         """Test generating a small wordlist."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            temp_path = f.name
+        result = subprocess.run([
+            sys.executable, str(wordlist_gen_script),
+            '--start', '2023',
+            '--end', '2023',
+            '--output', temp_file
+        ], capture_output=True, text=True, input='y\n', timeout=60)
         
-        try:
-            result = subprocess.run([
-                sys.executable, str(self.wordlist_gen),
-                '--start', '2023',
-                '--end', '2023',
-                '--output', temp_path
-            ], capture_output=True, text=True, input='y\n')  # Auto-confirm overwrite
-            
-            self.assertEqual(result.returncode, 0)
-            self.assertTrue(os.path.exists(temp_path))
-            
-            # Check file contents
-            with open(temp_path, 'r') as f:
-                lines = f.readlines()
-            
-            self.assertEqual(len(lines), 365)  # 2023 is not a leap year
-            self.assertEqual(lines[0].strip(), '01012023')
-            self.assertEqual(lines[-1].strip(), '31122023')
-            
-        finally:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
+        assert result.returncode == 0
+        assert os.path.exists(temp_file)
+        
+        with open(temp_file, 'r') as f:
+            lines = f.readlines()
+        
+        assert len(lines) == 365  # 2023 is not a leap year
+        assert lines[0].strip() == '01012023'
+        assert lines[-1].strip() == '31122023'
     
-    def test_verbose_output(self):
-        """Test verbose output option."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            temp_path = f.name
+    @pytest.mark.parametrize("date_format,expected_first,expected_length", [
+        ("DDMMYY", "010123", 6),
+        ("YYYYMMDD", "20230101", 8),
+        ("DDMMYYYY", "01012023", 8),
+    ])
+    @pytest.mark.slow
+    def test_date_formats(self, wordlist_gen_script, temp_file, date_format, expected_first, expected_length):
+        """Test different date formats."""
+        result = subprocess.run([
+            sys.executable, str(wordlist_gen_script),
+            '--start', '2023',
+            '--end', '2023',
+            '--format', date_format,
+            '--output', temp_file
+        ], capture_output=True, text=True, input='y\n', timeout=60)
         
-        try:
-            result = subprocess.run([
-                sys.executable, str(self.wordlist_gen),
-                '--start', '2023',
-                '--end', '2023',
-                '--output', temp_path,
-                '--verbose'
-            ], capture_output=True, text=True, timeout=30)
-            
-            self.assertEqual(result.returncode, 0)
-            # Verbose mode should show some progress information
-            # (May or may not show progress bars depending on timing)
-            
-        finally:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
-    
-    def test_multiple_formats(self):
-        """Test multiple format generation."""
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-            temp_path = f.name
+        assert result.returncode == 0
+        assert os.path.exists(temp_file)
         
-        try:
-            result = subprocess.run([
-                sys.executable, str(self.wordlist_gen),
-                '--start', '2023',
-                '--end', '2023',
-                '--output', temp_path,
-                '--formats', 'DDMMYYYY', 'DDMMYY'
-            ], capture_output=True, text=True)
-            
-            self.assertEqual(result.returncode, 0)
-            self.assertTrue(os.path.exists(temp_path))
-            
-            # Check file contents - should have both formats
-            with open(temp_path, 'r') as f:
-                lines = f.readlines()
-            
-            # Should have 365 * 2 = 730 lines
-            self.assertEqual(len(lines), 730)
-            
-            passwords = [line.strip() for line in lines]
-            
-            # Check for both formats
-            self.assertIn('01012023', passwords)  # DDMMYYYY
-            self.assertIn('010123', passwords)    # DDMMYY
-            
-        finally:
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
+        with open(temp_file, 'r') as f:
+            first_line = f.readline().strip()
+        
+        assert len(first_line) == expected_length
+        assert first_line == expected_first
 
 
-class TestWordlistGeneratorIntegration(unittest.TestCase):
+class TestComprehensiveWordlistCLI:
+    """Test the comprehensive wordlist generator CLI tool."""
+    
+    @pytest.fixture
+    def comprehensive_gen_script(self):
+        """Path to comprehensive wordlist generator script."""
+        return Path(__file__).parent.parent / 'src' / 'utils' / 'comprehensive_wordlist.py'
+    
+    def test_help_option(self, comprehensive_gen_script):
+        """Test --help option."""
+        result = subprocess.run([
+            sys.executable, str(comprehensive_gen_script), '--help'
+        ], capture_output=True, text=True)
+        
+        assert result.returncode == 0
+        assert 'Generate comprehensive PDF password wordlist' in result.stdout
+        assert '--years-back' in result.stdout
+        assert '--estimate-only' in result.stdout
+    
+    def test_estimate_only(self, comprehensive_gen_script):
+        """Test --estimate-only option."""
+        result = subprocess.run([
+            sys.executable, str(comprehensive_gen_script),
+            '--years-back', '1',  # Small range for testing
+            '--estimate-only'
+        ], capture_output=True, text=True)
+        
+        assert result.returncode == 0
+        assert 'Gregorian dates:' in result.stdout
+        assert 'Buddhist dates:' in result.stdout
+        assert '8-digit numbers:' in result.stdout
+        assert '100,000,000' in result.stdout  # 8-digit numbers count
+        assert 'Estimate complete' in result.stdout
+    
+    @pytest.mark.parametrize("years_back", [1, 5, 10])
+    def test_estimate_different_years_back(self, comprehensive_gen_script, years_back):
+        """Test estimation with different years back."""
+        result = subprocess.run([
+            sys.executable, str(comprehensive_gen_script),
+            '--years-back', str(years_back),
+            '--estimate-only'
+        ], capture_output=True, text=True)
+        
+        assert result.returncode == 0
+        assert 'Total passwords:' in result.stdout
+
+
+class TestWordlistGeneratorIntegration:
     """Integration tests for wordlist generator."""
-    
-    def setUp(self):
-        """Set up test fixtures."""
-        self.src_dir = Path(__file__).parent.parent / 'src'
-        sys.path.insert(0, str(self.src_dir))
     
     def test_import_wordlist_gen_module(self):
         """Test importing the wordlist generator module."""
         try:
-            import wordlist_gen
-            self.assertTrue(hasattr(wordlist_gen, 'main'))
+            import utils.wordlist_gen as wordlist_gen
+            assert hasattr(wordlist_gen, 'main')
         except ImportError as e:
-            self.fail(f"Failed to import wordlist_gen: {e}")
+            pytest.fail(f"Failed to import wordlist_gen: {e}")
     
-    def test_password_generator_integration(self):
-        """Test integration with password generator."""
-        from core.password_generator import CrunchPasswordGenerator
-        
-        gen = CrunchPasswordGenerator(2023, 2023)
-        count = gen.count_valid_dates()
-        self.assertEqual(count, 365)
-        
-        # Test file size estimation
-        size = gen.get_file_size_estimate()
-        expected_size = 365 * 9  # 8 chars + newline
-        self.assertEqual(size, expected_size)
+    def test_import_comprehensive_wordlist_module(self):
+        """Test importing the comprehensive wordlist generator module."""
+        try:
+            import utils.comprehensive_wordlist as comprehensive_wordlist
+            assert hasattr(comprehensive_wordlist, 'main')
+        except ImportError as e:
+            pytest.fail(f"Failed to import comprehensive_wordlist: {e}")
     
-    def test_date_validation_edge_cases(self):
-        """Test date validation edge cases."""
-        from core.password_generator import CrunchPasswordGenerator
+    def test_crunch_wrapper_integration(self):
+        """Test integration with CrunchWrapper."""
+        from core.crunch_wrapper import CrunchWrapper
         
-        gen = CrunchPasswordGenerator(2000, 2000)  # Leap year (divisible by 400)
-        self.assertTrue(gen.is_valid_date(29, 2, 2000))
+        crunch = CrunchWrapper()
+        assert crunch is not None
+        assert crunch.has_crunch in [True, False]
+    
+    @pytest.mark.parametrize("start_year,end_year,expected", [
+        (2020, 2020, 366),  # Leap year
+        (2021, 2021, 365),  # Not leap year
+        (2020, 2021, 366 + 365),  # Multiple years
+    ])
+    def test_date_calculation_function(self, start_year, end_year, expected):
+        """Test date calculation function."""
+        from utils.wordlist_gen import calculate_date_count
         
-        gen = CrunchPasswordGenerator(1900, 1900)  # Not leap year (divisible by 100 but not 400)
-        self.assertFalse(gen.is_valid_date(29, 2, 1900))
+        count = calculate_date_count(start_year, end_year)
+        assert count == expected
+    
+    def test_comprehensive_stats_calculation(self):
+        """Test comprehensive wordlist statistics calculation."""
+        from utils.comprehensive_wordlist import calculate_comprehensive_stats
         
-        gen = CrunchPasswordGenerator(2004, 2004)  # Leap year (divisible by 4)
-        self.assertTrue(gen.is_valid_date(29, 2, 2004))
+        stats = calculate_comprehensive_stats(1)  # 1 year back
         
-        gen = CrunchPasswordGenerator(2001, 2001)  # Not leap year
-        self.assertFalse(gen.is_valid_date(29, 2, 2001))
-
-
-if __name__ == '__main__':
-    unittest.main()
+        assert 'gregorian_dates' in stats
+        assert 'buddhist_dates' in stats
+        assert 'numbers' in stats
+        assert 'total_passwords' in stats
+        assert 'file_size_mb' in stats
+        
+        # Buddhist and Gregorian should have same count
+        assert stats['gregorian_dates'] == stats['buddhist_dates']
+        
+        # Numbers should be 100 million
+        assert stats['numbers'] == 100000000
+        
+        # Total should be sum of all parts
+        expected_total = stats['gregorian_dates'] + stats['buddhist_dates'] + stats['numbers']
+        assert stats['total_passwords'] == expected_total

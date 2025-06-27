@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Quick installation test for PDF Cracker.
+Installation verification tests for PDF Cracker simplified architecture.
 """
 
 import sys
@@ -8,168 +8,144 @@ import os
 import subprocess
 import shutil
 from pathlib import Path
+import pytest
 
-def test_python_version():
-    """Test Python version."""
-    version = sys.version_info
-    if version.major == 3 and version.minor >= 7:
-        print(f"✅ Python {version.major}.{version.minor}.{version.micro} - OK")
-        return True
-    else:
-        print(f"❌ Python {version.major}.{version.minor}.{version.micro} - Need 3.7+")
-        return False
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
 
-def test_john_the_ripper():
-    """Test John the Ripper installation."""
-    if shutil.which('john'):
-        try:
-            result = subprocess.run(['john', '--version'], capture_output=True, text=True)
-            print(f"✅ John the Ripper - OK")
-            return True
-        except:
-            print("❌ John the Ripper - Found but not working")
-            return False
-    else:
-        print("❌ John the Ripper - Not found")
-        return False
 
-def test_crunch():
-    """Test crunch installation."""
-    if shutil.which('crunch'):
-        print("✅ Crunch - OK")
-        return True
-    else:
-        print("⚠️  Crunch - Not found (optional)")
-        return True
-
-def test_pdf2john():
-    """Test pdf2john availability."""
-    paths = [
-        '/usr/share/john/pdf2john.pl',
-        '/opt/homebrew/share/john/pdf2john.pl',
-        '/usr/local/share/john/pdf2john.pl'
-    ]
+class TestInstallation:
+    """Test installation and system requirements."""
     
-    import glob
-    glob_paths = glob.glob('/opt/homebrew/Cellar/john-jumbo/*/share/john/pdf2john.pl')
-    paths.extend(glob_paths)
+    def test_python_version(self):
+        """Test Python version meets requirements."""
+        version = sys.version_info
+        assert version.major >= 3
+        assert version.minor >= 7
     
-    for path in paths:
-        if Path(path).exists():
-            print(f"✅ pdf2john found at {path}")
-            return True
-    
-    print("❌ pdf2john.pl - Not found")
-    return False
-
-def test_imports():
-    """Test Python imports."""
-    success = True
-    
-    # Test core imports
-    try:
-        import tkinter
-        print("✅ tkinter - OK")
-    except ImportError:
-        print("❌ tkinter - Not available")
-        success = False
-    
-    # Test optional imports
-    try:
-        import tkinterdnd2
-        print("✅ tkinterdnd2 - OK")
-    except ImportError:
-        print("⚠️  tkinterdnd2 - Not found (drag-drop disabled)")
-    
-    return success
-
-def test_modules():
-    """Test our modules can be imported."""
-    sys.path.insert(0, 'src')
-    
-    try:
-        from core.password_generator import CrunchPasswordGenerator
-        print("✅ Password generator module - OK")
-    except ImportError as e:
-        print(f"❌ Password generator module - {e}")
-        return False
-    
-    try:
-        from core.pdf_processor import PDFProcessor
-        print("✅ PDF processor module - OK")
-    except ImportError as e:
-        print(f"❌ PDF processor module - {e}")
-        return False
-    
-    try:
-        from core.cracker import PDFCracker
-        print("✅ PDF cracker module - OK")
-    except ImportError as e:
-        print(f"❌ PDF cracker module - {e}")
-        return False
-    
-    return True
-
-def test_wordlist_generator():
-    """Test wordlist generation."""
-    sys.path.insert(0, 'src')
-    
-    try:
-        from core.password_generator import CrunchPasswordGenerator
-        gen = CrunchPasswordGenerator(2024, 2024)
-        count = gen.count_valid_dates()
+    @pytest.mark.external
+    def test_john_the_ripper_available(self):
+        """Test John the Ripper is available."""
+        john_available = shutil.which('john') is not None
         
-        if count == 366:  # 2024 is a leap year
-            print(f"✅ Wordlist generation - OK ({count} passwords for 2024)")
-            return True
-        else:
-            print(f"❌ Wordlist generation - Wrong count: {count}")
-            return False
-    except Exception as e:
-        print(f"❌ Wordlist generation - {e}")
-        return False
+        if not john_available:
+            pytest.skip("John the Ripper not found (optional for unit tests)")
+        
+        try:
+            result = subprocess.run(['john', '--version'], 
+                                  capture_output=True, text=True, timeout=5)
+            assert result.returncode == 0
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pytest.skip("John the Ripper not properly installed")
+    
+    @pytest.mark.external 
+    def test_pdf2john_available(self):
+        """Test pdf2john.pl is available."""
+        paths = [
+            '/usr/share/john/pdf2john.pl',
+            '/opt/homebrew/share/john/pdf2john.pl',
+            '/usr/local/share/john/pdf2john.pl'
+        ]
+        
+        import glob
+        glob_paths = glob.glob('/opt/homebrew/Cellar/john-jumbo/*/share/john/pdf2john.pl')
+        paths.extend(glob_paths)
+        
+        pdf2john_found = any(Path(path).exists() for path in paths)
+        
+        if not pdf2john_found:
+            pytest.skip("pdf2john.pl not found (needed for actual PDF processing)")
+    
+    def test_core_modules_import(self):
+        """Test all core modules can be imported."""
+        try:
+            from core.john_wrapper import JohnWrapper, PDFCracker, CrackResult
+            from core.crunch_wrapper import CrunchWrapper
+            from core.pdf_processor import PDFProcessor
+        except ImportError as e:
+            pytest.fail(f"Failed to import core modules: {e}")
+    
+    def test_cli_modules_import(self):
+        """Test CLI modules can be imported."""
+        try:
+            import utils.comprehensive_crack
+            import utils.comprehensive_wordlist
+            import utils.wordlist_gen
+            
+            assert hasattr(utils.comprehensive_crack, 'main')
+            assert hasattr(utils.comprehensive_wordlist, 'main')
+            assert hasattr(utils.wordlist_gen, 'main')
+            
+        except ImportError as e:
+            pytest.fail(f"Failed to import CLI modules: {e}")
+    
+    def test_module_instantiation(self):
+        """Test core modules can be instantiated."""
+        from core.crunch_wrapper import CrunchWrapper
+        from core.pdf_processor import PDFProcessor
+        
+        crunch = CrunchWrapper()
+        assert crunch is not None
+        
+        try:
+            pdf_proc = PDFProcessor()
+            assert pdf_proc is not None
+        except FileNotFoundError:
+            pytest.skip("PDFProcessor requires pdf2john.pl")
+    
+    def test_executable_scripts_exist(self):
+        """Test executable scripts exist."""
+        project_root = Path(__file__).parent.parent
+        scripts = [
+            'pdf-crack',
+            'pdf-comprehensive-wordlist', 
+            'pdf-wordlist'
+        ]
+        
+        for script in scripts:
+            script_path = project_root / script
+            assert script_path.exists(), f"Script {script} not found"
+            
+            if os.name != 'nt':  # Not Windows
+                assert os.access(script_path, os.X_OK), f"Script {script} is not executable"
 
-def main():
-    """Run all tests."""
-    print("🔐 PDF Cracker Installation Test")
-    print("================================")
-    print()
-    
-    tests = [
-        ("Python Version", test_python_version),
-        ("John the Ripper", test_john_the_ripper),
-        ("Crunch", test_crunch),
-        ("pdf2john", test_pdf2john),
-        ("Python Imports", test_imports),
-        ("Module Imports", test_modules),
-        ("Wordlist Generation", test_wordlist_generator),
-    ]
-    
-    passed = 0
-    total = len(tests)
-    
-    for name, test_func in tests:
-        print(f"Testing {name}...")
-        if test_func():
-            passed += 1
-        print()
-    
-    print("=" * 40)
-    print(f"Results: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("🎉 All tests passed! Installation looks good.")
-        print("\nYou can now run:")
-        print("  GUI:       python src/main.py")
-        print("  Wordlist:  python src/wordlist_gen.py --help")
-    else:
-        print("⚠️  Some tests failed. Check the installation.")
-        print("\nTry running the installation script:")
-        print("  Linux/macOS: ./install.sh")
-        print("  Windows:     install.bat")
-    
-    return passed == total
 
-if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+class TestQuickFunctionality:
+    """Quick functionality tests that don't require external dependencies."""
+    
+    def test_crunch_wrapper_no_crunch(self):
+        """Test CrunchWrapper works without crunch installed."""
+        from core.crunch_wrapper import CrunchWrapper
+        
+        crunch = CrunchWrapper()
+        assert crunch.has_crunch in [True, False]
+    
+    @pytest.mark.parametrize("year,expected_days", [
+        (2020, 366),  # Leap year
+        (2021, 365),  # Not leap year
+        (2000, 366),  # Leap year (divisible by 400)
+        (1900, 365),  # Not leap year (divisible by 100 but not 400)
+    ])
+    def test_date_calculation(self, year, expected_days):
+        """Test date calculation functions."""
+        from utils.wordlist_gen import calculate_date_count
+        
+        count = calculate_date_count(year, year)
+        assert count == expected_days
+    
+    def test_comprehensive_stats(self):
+        """Test comprehensive wordlist statistics."""
+        from utils.comprehensive_wordlist import calculate_comprehensive_stats
+        
+        stats = calculate_comprehensive_stats(1)  # 1 year back
+        
+        assert 'gregorian_dates' in stats
+        assert 'buddhist_dates' in stats
+        assert 'numbers' in stats
+        assert 'total_passwords' in stats
+        
+        # Numbers should always be 100 million
+        assert stats['numbers'] == 100000000
+        
+        # Buddhist and Gregorian should have same count
+        assert stats['gregorian_dates'] == stats['buddhist_dates']

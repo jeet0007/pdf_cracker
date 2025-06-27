@@ -13,7 +13,7 @@ import time
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.cracker import PDFCracker, CrackResult
+from core.john_wrapper import PDFCracker, CrackResult
 
 def analyze_password(password: str):
     """Analyze what type of password was found."""
@@ -199,9 +199,8 @@ Examples:
     try:
         result = cracker.crack_pdf(
             pdf_path,
-            method='wordlist',
-            wordlist_path=wordlist_path,
-            progress_callback=progress_callback
+            wordlist_path,
+            progress_callback
         )
         
         elapsed_time = time.time() - start_time
