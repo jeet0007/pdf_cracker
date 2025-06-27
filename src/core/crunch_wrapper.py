@@ -45,7 +45,13 @@ class CrunchWrapper:
             True if successful, False otherwise
         """
         if self.has_crunch:
-            return self._generate_numbers_with_crunch(output_path, digits, progress_callback)
+            success = self._generate_numbers_with_crunch(output_path, digits, progress_callback)
+            if success:
+                return True
+            # Fall back to Python if crunch fails
+            if progress_callback:
+                progress_callback(0, "Crunch failed, falling back to Python generation")
+            return self._generate_numbers_with_python(output_path, min_number, max_number, digits, progress_callback)
         else:
             return self._generate_numbers_with_python(output_path, min_number, max_number, digits, progress_callback)
     
