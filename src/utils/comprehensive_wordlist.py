@@ -14,6 +14,7 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from core.crunch_wrapper import CrunchWrapper
+from core.custom_wordlist_generators import CustomWordlistGenerator
 
 
 def calculate_comprehensive_stats(years_back: int):

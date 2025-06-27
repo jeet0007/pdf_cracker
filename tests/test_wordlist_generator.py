@@ -174,13 +174,14 @@ class TestWordlistGeneratorIntegration:
         except ImportError as e:
             pytest.fail(f"Failed to import comprehensive_wordlist: {e}")
     
-    def test_crunch_wrapper_integration(self):
-        """Test integration with CrunchWrapper."""
-        from core.crunch_wrapper import CrunchWrapper
+    def test_custom_wordlist_generator_integration(self):
+        """Test integration with CustomWordlistGenerator."""
+        from core.custom_wordlist_generators import CustomWordlistGenerator
         
-        crunch = CrunchWrapper()
-        assert crunch is not None
-        assert crunch.has_crunch in [True, False]
+        generator = CustomWordlistGenerator()
+        assert generator is not None
+        assert hasattr(generator, 'generate_date_wordlist')
+        assert hasattr(generator, 'calculate_date_count')
     
     @pytest.mark.parametrize("start_year,end_year,expected", [
         (2020, 2020, 366),  # Leap year

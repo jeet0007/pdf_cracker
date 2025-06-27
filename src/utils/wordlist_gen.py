@@ -13,7 +13,7 @@ from datetime import datetime
 # Add src to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from core.crunch_wrapper import CrunchWrapper
+from core.custom_wordlist_generators import CustomWordlistGenerator
 
 
 def calculate_date_count(start_year: int, end_year: int) -> int:
@@ -113,14 +113,14 @@ Examples:
         
         print(f"\n🚀 Generating wordlist to '{args.output}'...")
         
-        # Initialize crunch wrapper
-        crunch = CrunchWrapper()
+        # Initialize custom wordlist generator
+        generator = CustomWordlistGenerator()
         
         def progress_callback(progress: float, message: str):
             print(f"📊 {progress:.1f}% - {message}")
         
         # Generate wordlist
-        success = crunch.generate_date_wordlist(
+        success = generator.generate_date_wordlist(
             args.output,
             args.start,
             args.end,
@@ -138,9 +138,7 @@ Examples:
             print(f"   📏 Size: {actual_size_mb:.1f} MB")
             print(f"   📊 Lines: {total_passwords:,}")
             
-            if not crunch.has_crunch:
-                print(f"\n💡 Note: Used Python fallback (crunch not found)")
-                print(f"   Install crunch for better performance: sudo apt install crunch")
+            print(f"\n💡 Note: Used custom date generator for accurate date wordlists")
             
             return 0
         else:
